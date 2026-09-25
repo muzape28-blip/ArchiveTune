@@ -39,7 +39,7 @@ class CreatePlaylistUseCase
         suspend operator fun invoke(
             name: String,
             syncRequested: Boolean,
-        ) {
+        ): String {
             val normalizedName = name.trim()
             require(normalizedName.isNotEmpty())
 
@@ -55,7 +55,7 @@ class CreatePlaylistUseCase
                     null
                 }
 
-            repository.createLocalPlaylist(
+            return repository.createLocalPlaylist(
                 name = normalizedName,
                 browseId = browseId,
             )

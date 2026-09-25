@@ -148,6 +148,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
 import moe.rukamori.archivetune.LocalDownloadUtil
+import moe.rukamori.archivetune.LocalDatabase
 import moe.rukamori.archivetune.LocalPlayerConnection
 import moe.rukamori.archivetune.R
 import moe.rukamori.archivetune.canvas.CanvasSource
@@ -316,6 +317,7 @@ fun BottomSheetPlayer(
 
     val bottomSheetPageState = LocalBottomSheetPageState.current
 
+    val database = LocalDatabase.current
     val playerConnection = LocalPlayerConnection.current ?: return
     val playbackError by playerConnection.error.collectAsStateWithLifecycle()
     val (innerTubeCookie) = rememberPreference(InnerTubeCookieKey, defaultValue = "")
@@ -841,7 +843,12 @@ fun BottomSheetPlayer(
     AddToPlaylistDialog(
         isVisible = showChoosePlaylistDialog,
         onGetSong = {
-            mediaMetadata?.let { listOf(it.id) } ?: emptyList()
+            mediaMetadata?.let {
+                database.withTransaction {
+                    insert(it)
+                }
+                listOf(it.id)
+            } ?: emptyList()
         },
         onDismiss = { showChoosePlaylistDialog = false },
         onAddComplete = { songCount, playlistNames ->

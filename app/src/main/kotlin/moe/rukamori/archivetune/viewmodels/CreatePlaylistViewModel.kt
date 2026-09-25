@@ -57,7 +57,9 @@ data class CreatePlaylistUiData(
 }
 
 sealed interface CreatePlaylistEvent {
-    data object Created : CreatePlaylistEvent
+    data class Created(
+        val playlistId: String,
+    ) : CreatePlaylistEvent
 }
 
 @HiltViewModel
@@ -167,15 +169,16 @@ class CreatePlaylistViewModel
             createJob =
                 viewModelScope.launch {
                     try {
-                        createPlaylist(
-                            name = data.name,
-                            syncRequested = data.syncRequested,
-                        )
+                        val playlistId =
+                            createPlaylist(
+                                name = data.name,
+                                syncRequested = data.syncRequested,
+                            )
                         mutableScreenState.value =
                             CreatePlaylistScreenState.Success(
                                 data.copy(isSubmitting = false),
                             )
-                        mutableEvents.emit(CreatePlaylistEvent.Created)
+                        mutableEvents.emit(CreatePlaylistEvent.Created(playlistId))
                     } catch (error: CancellationException) {
                         throw error
                     } catch (_: Exception) {

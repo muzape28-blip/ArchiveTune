@@ -57,16 +57,18 @@ class PlaylistCreationRepository
         suspend fun createLocalPlaylist(
             name: String,
             browseId: String?,
-        ) = withContext(Dispatchers.IO) {
-            database.withTransaction {
-                insert(
+        ): String =
+            withContext(Dispatchers.IO) {
+                val playlistEntity =
                     PlaylistEntity(
                         name = name,
                         browseId = browseId,
                         bookmarkedAt = LocalDateTime.now(),
                         isEditable = true,
-                    ),
-                )
+                    )
+                database.withTransaction {
+                    insert(playlistEntity)
+                }
+                playlistEntity.id
             }
-        }
     }
