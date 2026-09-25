@@ -7292,6 +7292,23 @@ class MusicService :
         }
         if (player.currentMediaItem?.mediaId != currentMediaId || player.playerError !== error) return
 
+        if (isLocalMedia && isCacheCorruptionError(error, hasAnyCachedData)) {
+            // A local file that is corrupted or truncated will fail identically on every
+            // retry, so pausing playback (the previous behavior) just leaves the user
+            // stuck on a dead track. Always skip to the next queue item instead,
+            // regardless of the general "Auto skip on error" preference, since there is
+            // nothing the user can do here except move on. skipOnError() still pauses
+            // after too many consecutive failures to avoid racing through a whole queue
+            // of broken files.
+            Timber.tag("MusicService").w(
+                error,
+                "Local media %s appears corrupted or truncated; auto-skipping to the next track",
+                currentMediaId,
+            )
+            skipOnError()
+            return
+        }
+
         if (!isLocalMedia && isCacheCorruptionError(error, hasAnyCachedData)) {
             if (!isNetworkCurrentlyConnected()) {
                 waitOnNetworkError()
