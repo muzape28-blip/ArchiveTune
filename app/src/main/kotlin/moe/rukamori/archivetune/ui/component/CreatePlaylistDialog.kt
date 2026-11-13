@@ -40,10 +40,12 @@ fun CreatePlaylistDialog(
     onDismiss: () -> Unit,
     initialTextFieldValue: String? = null,
     allowSyncing: Boolean = true,
+    onCreated: ((playlistId: String) -> Unit)? = null,
     viewModel: CreatePlaylistViewModel = hiltViewModel(),
 ) {
     val screenState by viewModel.screenState.collectAsStateWithLifecycle()
     val currentOnDismiss by rememberUpdatedState(onDismiss)
+    val currentOnCreated by rememberUpdatedState(onCreated)
     val dismiss =
         remember(viewModel) {
             {
@@ -64,7 +66,8 @@ fun CreatePlaylistDialog(
 
     LaunchedEffect(viewModel) {
         viewModel.events.collect { event ->
-            if (event == CreatePlaylistEvent.Created) {
+            if (event is CreatePlaylistEvent.Created) {
+                currentOnCreated?.invoke(event.playlistId)
                 viewModel.close()
                 currentOnDismiss()
             }

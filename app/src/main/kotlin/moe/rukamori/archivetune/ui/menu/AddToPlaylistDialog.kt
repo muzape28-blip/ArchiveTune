@@ -84,6 +84,7 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import moe.rukamori.archivetune.LocalDatabase
@@ -706,6 +707,43 @@ fun AddToPlaylistDialog(
             onDismiss = { showCreatePlaylistDialog = false },
             initialTextFieldValue = initialTextFieldValue,
             allowSyncing = allowSyncing,
+            onCreated = { newPlaylistId ->
+                isAddingToPlaylist = true
+                coroutineScope.launch {
+                    val currentSongIds =
+                        withContext(Dispatchers.IO) {
+                            songIds ?: onGetSong()
+                        }
+                    songIds = currentSongIds
+
+                    if (currentSongIds.isNullOrEmpty()) {
+                        isAddingToPlaylist = false
+                        onDismiss()
+                        return@launch
+                    }
+
+                    val newPlaylist =
+                        withContext(Dispatchers.IO) {
+                            database.playlist(newPlaylistId).first()
+                        }
+
+                    isAddingToPlaylist = false
+
+                    if (newPlaylist == null) {
+                        onDismiss()
+                        return@launch
+                    }
+
+                    val addedCount =
+                        withContext(Dispatchers.IO) {
+                            addSongsToPlaylistSafely(newPlaylist, currentSongIds)
+                        }
+                    if (addedCount > 0) {
+                        onAddComplete?.invoke(addedCount, listOf(newPlaylist.playlist.name))
+                    }
+                    onDismiss()
+                }
+            },
         )
     }
 

@@ -239,9 +239,45 @@ private class DatabaseCallback : RoomDatabase.Callback() {
 
                 cleanupDuplicatePlaylistsOnOpen(db)
                 ensurePlaylistBrowseIdIndex(db)
+
+                // Older builds inserted rows referencing playlists/songs/artists/albums
+                // that were never persisted (foreign keys were never enforced), leaving
+                // orphaned rows behind. Those must be purged before we can safely turn
+                // foreign key enforcement on, otherwise perfectly normal future writes
+                // could start throwing SQLiteConstraintException because of leftover
+                // bad data from before this fix existed.
+                cleanupOrphanedForeignKeyRowsOnOpen(db)
+                db.setForeignKeyConstraintsEnabled(true)
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to set PRAGMA settings", e)
             }
+        }
+    }
+
+    /**
+     * Deletes rows that reference a parent row which no longer exists (or,
+     * pre-fix, was never actually inserted). Must run before
+     * [SupportSQLiteDatabase.setForeignKeyConstraintsEnabled] is turned on so
+     * that enabling enforcement doesn't suddenly start crashing writes that
+     * used to silently succeed.
+     */
+    private fun cleanupOrphanedForeignKeyRowsOnOpen(db: SupportSQLiteDatabase) {
+        try {
+            db.execSQL("DELETE FROM playlist_song_map WHERE playlistId NOT IN (SELECT id FROM playlist)")
+            db.execSQL("DELETE FROM playlist_song_map WHERE songId NOT IN (SELECT id FROM song)")
+            db.execSQL("DELETE FROM song_artist_map WHERE songId NOT IN (SELECT id FROM song)")
+            db.execSQL("DELETE FROM song_artist_map WHERE artistId NOT IN (SELECT id FROM artist)")
+            db.execSQL("DELETE FROM song_album_map WHERE songId NOT IN (SELECT id FROM song)")
+            db.execSQL("DELETE FROM song_album_map WHERE albumId NOT IN (SELECT id FROM album)")
+            db.execSQL("DELETE FROM album_artist_map WHERE albumId NOT IN (SELECT id FROM album)")
+            db.execSQL("DELETE FROM album_artist_map WHERE artistId NOT IN (SELECT id FROM artist)")
+            db.execSQL("DELETE FROM event WHERE songId NOT IN (SELECT id FROM song)")
+            db.execSQL("DELETE FROM library_top_mix_song_map WHERE mixId NOT IN (SELECT id FROM library_top_mix)")
+            db.execSQL("DELETE FROM library_top_mix_song_map WHERE songId NOT IN (SELECT id FROM song)")
+            db.execSQL("DELETE FROM related_song_map WHERE songId NOT IN (SELECT id FROM song)")
+            db.execSQL("DELETE FROM related_song_map WHERE relatedSongId NOT IN (SELECT id FROM song)")
+        } catch (e: Exception) {
+            Log.w(TAG, "Orphaned foreign key row cleanup skipped", e)
         }
     }
 
